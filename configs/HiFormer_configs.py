@@ -63,7 +63,7 @@ def get_hiformer_b_configs():
     # DLF Configs
     cfg.depth = [[1, 2, 4]]
     cfg.num_heads = (6, 9, 12)
-    cfg.mlp_ratio=(2., 2., 1.)
+    cfg.mlp_ratio=(4., 4., 1.)
     cfg.drop_rate = 0.
     cfg.attn_drop_rate = 0.
     cfg.drop_path_rate = 0.
