@@ -61,8 +61,8 @@ def get_hiformer_b_configs():
     cfg.resnet_pretrained = True
 
     # DLF Configs
-    cfg.depth = [[1, 2, 0]]
-    cfg.num_heads = (6, 12)
+    cfg.depth = [[1, 2, 4]]
+    cfg.num_heads = (6, 9, 12)
     cfg.mlp_ratio=(2., 2., 1.)
     cfg.drop_rate = 0.
     cfg.attn_drop_rate = 0.
