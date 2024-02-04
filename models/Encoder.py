@@ -190,43 +190,48 @@ class PyramidFeatures(nn.Module):
 
 # DLF Module
 class All2Cross(nn.Module):
-    def __init__(self, config, img_size = 224 , in_chans=3, embed_dim=(96, 384), norm_layer=nn.LayerNorm):
+    def __init__(self, config, img_size=224, in_chans=3, embed_dim=(96, 192, 384), norm_layer=nn.LayerNorm):
         super().__init__()
         self.cross_pos_embed = config.cross_pos_embed
-        self.pyramid = PyramidFeatures(config=config, img_size= img_size, in_channels=in_chans)
+        self.pyramid = PyramidFeatures(config=config, img_size=img_size, in_channels=in_chans)
         
-        n_p1 = (config.image_size // config.patch_size     ) ** 2  # default: 3136 
-        n_p2 = (config.image_size // config.patch_size // 4) ** 2  # default: 196 
-        num_patches = (n_p1, n_p2)
-        self.num_branches = 2
+        # Number of patches for small, mid, and large level features
+        n_p1 = (config.image_size // config.patch_size) ** 2      # default: 3136 for small
+        n_p2 = (config.image_size // (config.patch_size * 2)) ** 2 # for mid-level features
+        n_p3 = (config.image_size // (config.patch_size * 4)) ** 2 # default: 196 for large
+        num_patches = (n_p1, n_p2, n_p3)
+        self.num_branches = 3  # Now we have three branches
         
+        # Positional embeddings for each branch
         self.pos_embed = nn.ParameterList([nn.Parameter(torch.zeros(1, 1 + num_patches[i], embed_dim[i])) for i in range(self.num_branches)])
         
-        total_depth = sum([sum(x[-2:]) for x in config.depth])
-        dpr = [x.item() for x in torch.linspace(0, config.drop_path_rate, total_depth)]  # stochastic depth decay rule
-        dpr_ptr = 0
+        # Define blocks for each branch
         self.blocks = nn.ModuleList()
-        for idx, block_config in enumerate(config.depth):
-            curr_depth = max(block_config[:-1]) + block_config[-1]
-            dpr_ = dpr[dpr_ptr:dpr_ptr + curr_depth]
-            blk = MultiScaleBlock(embed_dim, num_patches, block_config, num_heads=config.num_heads, mlp_ratio=config.mlp_ratio,
+        for idx in range(len(config.depth)):
+            block_config = config.depth[idx]
+            blk_embed_dim = embed_dim[idx]
+            blk_num_patches = num_patches[idx]
+            blk_num_heads = config.num_heads[idx]
+            blk = MultiScaleBlock(blk_embed_dim, blk_num_patches, block_config, num_heads=blk_num_heads, mlp_ratio=config.mlp_ratio,
                                   qkv_bias=config.qkv_bias, qk_scale=config.qk_scale, drop=config.drop_rate, 
-                                  attn_drop=config.attn_drop_rate, drop_path=dpr_, norm_layer=norm_layer)
-            dpr_ptr += curr_depth
+                                  attn_drop=config.attn_drop_rate, drop_path=config.dpr[idx], norm_layer=norm_layer)
             self.blocks.append(blk)
-
+        
+        # Normalization layers for each branch
         self.norm = nn.ModuleList([norm_layer(embed_dim[i]) for i in range(self.num_branches)])
+        
+        # Initialize positional embeddings
+        for pos_embed in self.pos_embed:
+            if pos_embed.requires_grad:
+                trunc_normal_(pos_embed, std=.02)
 
-        for i in range(self.num_branches):
-            if self.pos_embed[i].requires_grad:
-                trunc_normal_(self.pos_embed[i], std=.02)
-
+        # Apply weight initialization
         self.apply(self._init_weights)
-    
+
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
+            if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
             nn.init.constant_(m.bias, 0)
@@ -235,19 +240,24 @@ class All2Cross(nn.Module):
     @torch.jit.ignore
     def no_weight_decay(self):
         out = {'cls_token'}
-        if self.pos_embed[0].requires_grad:
-            out.add('pos_embed')
+        for pos_embed in self.pos_embed:
+            if pos_embed.requires_grad:
+                out.add('pos_embed')
         return out
 
     def forward(self, x):
-        xs = self.pyramid(x)
+        xs = self.pyramid(x)  # xs should now have three elements, one for each scale
 
+        # Add positional embeddings if cross positional embedding is enabled
         if self.cross_pos_embed:
-          for i in range(self.num_branches):
-            xs[i] += self.pos_embed[i]
+            for i in range(self.num_branches):
+                xs[i] += self.pos_embed[i]
 
-        for blk in self.blocks:
-            xs = blk(xs)
-        xs = [self.norm[i](x) for i, x in enumerate(xs)]
+        # Process features through their respective blocks
+        for i, blk in enumerate(self.blocks):
+            xs[i] = blk(xs[i])
+        
+        # Normalize the output of each branch
+        xs = [self.norm[i](xs[i]) for i in range(self.num_branches)]
 
         return xs
