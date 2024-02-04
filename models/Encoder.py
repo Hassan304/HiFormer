@@ -172,8 +172,11 @@ class PyramidFeatures(nn.Module):
         fm1_sw2 = self.swin_transformer.layers[1](fm1_sw1)
         fm2 = self.p2(fm1)
         fm2_ch = self.p2_ch(fm2)
-        fm2_reshaped = Rearrange('b c h w -> b (h w) c')(fm2_ch) 
+        fm2_reshaped = Rearrange('b c h w -> b (h w) c')(fm2_ch)
         fm2_sw2_skipped = fm2_reshaped  + fm1_sw2
+        norm1 = self.norm_2(fm2_sw2_skipped) 
+        sw2_CLS = self.avgpool_2(norm1.transpose(1, 2))
+        sw2_CLS_reshaped = Rearrange('b c 1 -> b 1 c')(sw2_CLS)
         fm2_sw2 = self.p2_pm(fm2_sw2_skipped)
     
         # Level 3
@@ -182,11 +185,11 @@ class PyramidFeatures(nn.Module):
         fm3_ch = self.p3_ch(fm3)
         fm3_reshaped = Rearrange('b c h w -> b (h w) c')(fm3_ch) 
         fm3_sw3_skipped = fm3_reshaped  + fm2_sw3
-        norm2 = self.norm_2(fm3_sw3_skipped) 
-        sw3_CLS = self.avgpool_2(norm2.transpose(1, 2))
+        norm2 = self.norm_3(fm3_sw3_skipped) 
+        sw3_CLS = self.avgpool_3(norm2.transpose(1, 2))
         sw3_CLS_reshaped = Rearrange('b c 1 -> b 1 c')(sw3_CLS) 
 
-        return [torch.cat((sw1_CLS_reshaped, sw1_skipped), dim=1), torch.cat((sw3_CLS_reshaped, fm3_sw3_skipped), dim=1)]
+        return [torch.cat((sw1_CLS_reshaped, sw1_skipped), dim=1), torch.cat((sw2_CLS_reshaped, fm2_sw2_skipped), dim=1), torch.cat((sw3_CLS_reshaped, fm3_sw3_skipped), dim=1)]
 
 # DLF Module
 class All2Cross(nn.Module):
