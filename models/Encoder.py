@@ -192,45 +192,113 @@ class PyramidFeatures(nn.Module):
         return [torch.cat((sw1_CLS_reshaped, sw1_skipped), dim=1), torch.cat((sw2_CLS_reshaped, fm2_sw2_skipped), dim=1), torch.cat((sw3_CLS_reshaped, fm3_sw3_skipped), dim=1)]
 
 # DLF Module
+import torch
+import torch.nn as nn
+from models.pyramid_features import PyramidFeatures
+from models.multi_scale_block import MultiScaleBlock
+from torch.nn.init import trunc_normal_
+
 class All2Cross(nn.Module):
     def __init__(self, config, img_size=224, in_chans=3, embed_dim=(96, 192, 384), norm_layer=nn.LayerNorm):
         super().__init__()
         self.cross_pos_embed = config.cross_pos_embed
         self.pyramid = PyramidFeatures(config=config, img_size=img_size, in_channels=in_chans)
         
-        # Number of patches for small, mid, and large level features
-        n_p1 = (config.image_size // config.patch_size) ** 2      # default: 3136 for small
-        n_p2 = (config.image_size // (config.patch_size * 2)) ** 2 # for mid-level features
-        n_p3 = (config.image_size // (config.patch_size * 4)) ** 2 # default: 196 for large
+        # Adjust the number of patches to account for the middle level
+        n_p1 = (config.image_size // config.patch_size) ** 2     # Large level
+        n_p2 = (config.image_size // (config.patch_size // 2)) ** 2  # Middle level
+        n_p3 = (config.image_size // (config.patch_size // 4)) ** 2  # Small level
+        num_patches = (n_p1, n_p2, n_p3)
+        self.num_branches = 3  # Increase the number of branches to 3
+        
+        # Create positional embeddings for three branches
+        self.pos_embed = nn.ParameterList([
+            nn.Parameter(torch.zeros(1, 1 + num_patches[i], embed_dim[i])) for i in range(self.num_branches)
+        ])
+        
+        # Adjust total_depth calculation for three branches
+        total_depth = sum([sum(x) for x in config.depth])
+        dpr = [x.item() for x in torch.linspace(0, config.drop_path_rate, total_depth)]  # stochastic depth decay rule
+        dpr_ptr = 0
+        self.blocks = nn.ModuleList()
+        for idx, block_config in enumerate(config.depth):
+            curr_depth = sum(block_config)
+            dpr_ = dpr[dpr_ptr:dpr_ptr + curr_depth]
+            blk = MultiScaleBlock(embed_dim, num_patches, block_config, num_heads=config.num_heads, mlp_ratio=config.mlp_ratio,
+                                  qkv_bias=config.qkv_bias, qk_scale=config.qk_scale, drop=config.drop_rate, 
+                                  attn_drop=config.attn_drop_rate, drop_path=dpr_, norm_layer=norm_layer)
+            dpr_ptr += curr_depth
+            self.blocks.append(blk)
+
+        # Adjust normalization for three branches
+        self.norm = nn.ModuleList([norm_layer(embed_dim[i]) for i in range(self.num_branches)])
+
+        # Initialize weights
+        self.apply(self._init_weights)
+    
+    # Weight initialization remains the same as before
+    
+    def forward(self, x):
+        xs = self.pyramid(x)
+
+        # Apply positional embeddings for three branches
+        if self.cross_pos_embed:
+            for i in range(self.num_branches):
+                xs[i] += self.pos_embed[i]
+
+        # Apply MultiScaleBlock and normalization to three branches
+        for blk in self.blocks:
+            xs = blk(xs)
+        xs = [self.norm[i](x) for i, x in enumerate(xs)]
+
+        return xs
+
+import torch
+import torch.nn as nn
+from models.pyramid_features import PyramidFeatures
+from models.multi_scale_block import MultiScaleBlock
+from torch.nn.init import trunc_normal_
+
+class All2Cross(nn.Module):
+    def __init__(self, config, img_size=224, in_chans=3, embed_dim=(96, 192, 384), norm_layer=nn.LayerNorm):
+        super().__init__()
+        self.cross_pos_embed = config.cross_pos_embed
+        self.pyramid = PyramidFeatures(config=config, img_size=img_size, in_channels=in_chans)
+        
+        # Update the number of patches to correspond to the three feature levels
+        n_p1 = (config.image_size // (config.patch_size * 4)) ** 2  # Small level, assuming patch_size * 4
+        n_p2 = (config.image_size // (config.patch_size * 2)) ** 2  # Middle level, assuming patch_size * 2
+        n_p3 = (config.image_size // config.patch_size) ** 2        # Large level
         num_patches = (n_p1, n_p2, n_p3)
         self.num_branches = 3  # Now we have three branches
         
-        # Positional embeddings for each branch
-        self.pos_embed = nn.ParameterList([nn.Parameter(torch.zeros(1, 1 + num_patches[i], embed_dim[i])) for i in range(self.num_branches)])
+        # Create positional embeddings for three branches
+        self.pos_embed = nn.ParameterList([
+            nn.Parameter(torch.zeros(1, 1 + num_patches[i], embed_dim[i])) for i in range(self.num_branches)
+        ])
         
-        # Define blocks for each branch
+        # Calculate the total depth for all blocks in the model
+        total_depth = sum([sum(x) for x in config.depth])  # Assuming config.depth is structured appropriately
+        dpr = [x.item() for x in torch.linspace(0, config.drop_path_rate, total_depth)]  # Stochastic depth decay rule
+        dpr_ptr = 0
+        
+        # Construct blocks for three branches
         self.blocks = nn.ModuleList()
-        for idx in range(len(config.depth)):
-            block_config = config.depth[idx]
-            blk_embed_dim = embed_dim[idx]
-            blk_num_patches = num_patches[idx]
-            blk_num_heads = config.num_heads[idx]
-            blk = MultiScaleBlock(blk_embed_dim, blk_num_patches, block_config, num_heads=blk_num_heads, mlp_ratio=config.mlp_ratio,
+        for idx, block_config in enumerate(config.depth):
+            curr_depth = sum(block_config)
+            dpr_ = dpr[dpr_ptr:dpr_ptr + curr_depth]
+            blk = MultiScaleBlock(embed_dim, num_patches, block_config, num_heads=config.num_heads, mlp_ratio=config.mlp_ratio,
                                   qkv_bias=config.qkv_bias, qk_scale=config.qk_scale, drop=config.drop_rate, 
-                                  attn_drop=config.attn_drop_rate, drop_path=config.dpr[idx], norm_layer=norm_layer)
+                                  attn_drop=config.attn_drop_rate, drop_path=dpr_, norm_layer=norm_layer)
+            dpr_ptr += curr_depth
             self.blocks.append(blk)
-        
+
         # Normalization layers for each branch
         self.norm = nn.ModuleList([norm_layer(embed_dim[i]) for i in range(self.num_branches)])
-        
-        # Initialize positional embeddings
-        for pos_embed in self.pos_embed:
-            if pos_embed.requires_grad:
-                trunc_normal_(pos_embed, std=.02)
 
-        # Apply weight initialization
+        # Initialize weights
         self.apply(self._init_weights)
-
+    
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -243,24 +311,22 @@ class All2Cross(nn.Module):
     @torch.jit.ignore
     def no_weight_decay(self):
         out = {'cls_token'}
-        for pos_embed in self.pos_embed:
-            if pos_embed.requires_grad:
-                out.add('pos_embed')
+        if self.pos_embed[0].requires_grad:
+            out.add('pos_embed')
         return out
 
     def forward(self, x):
-        xs = self.pyramid(x)  # xs should now have three elements, one for each scale
+        xs = self.pyramid(x)
 
-        # Add positional embeddings if cross positional embedding is enabled
+        # Add positional embeddings for three branches
         if self.cross_pos_embed:
             for i in range(self.num_branches):
                 xs[i] += self.pos_embed[i]
 
-        # Process features through their respective blocks
-        for i, blk in enumerate(self.blocks):
-            xs[i] = blk(xs[i])
-        
-        # Normalize the output of each branch
-        xs = [self.norm[i](xs[i]) for i in range(self.num_branches)]
+        # Apply MultiScaleBlock and normalization to each set of features
+        for blk in self.blocks:
+            xs = blk(xs)
+        xs = [self.norm[i](x) for i, x in enumerate(xs)]
 
         return xs
+
