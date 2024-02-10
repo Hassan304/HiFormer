@@ -174,8 +174,8 @@ class PyramidFeatures(nn.Module):
         fm2_ch = self.p2_ch(fm2)
         fm2_reshaped = Rearrange('b c h w -> b (h w) c')(fm2_ch)
         fm2_sw2_skipped = fm2_reshaped  + fm1_sw2
-        norm1 = self.norm_2(fm2_sw2_skipped) 
-        sw2_CLS = self.avgpool_2(norm1.transpose(1, 2))
+        norm2 = self.norm_2(fm2_sw2_skipped) 
+        sw2_CLS = self.avgpool_2(norm2.transpose(1, 2))
         sw2_CLS_reshaped = Rearrange('b c 1 -> b 1 c')(sw2_CLS)
         fm2_sw2 = self.p2_pm(fm2_sw2_skipped)
     
@@ -185,124 +185,55 @@ class PyramidFeatures(nn.Module):
         fm3_ch = self.p3_ch(fm3)
         fm3_reshaped = Rearrange('b c h w -> b (h w) c')(fm3_ch) 
         fm3_sw3_skipped = fm3_reshaped  + fm2_sw3
-        norm2 = self.norm_3(fm3_sw3_skipped) 
-        sw3_CLS = self.avgpool_3(norm2.transpose(1, 2))
+        norm3 = self.norm_3(fm3_sw3_skipped) 
+        sw3_CLS = self.avgpool_3(norm3.transpose(1, 2))
         sw3_CLS_reshaped = Rearrange('b c 1 -> b 1 c')(sw3_CLS) 
+        fm3_sw3 = self.p3_pm(fm3_sw3_skipped    )
 
         return [torch.cat((sw1_CLS_reshaped, sw1_skipped), dim=1), torch.cat((sw2_CLS_reshaped, fm2_sw2_skipped), dim=1), torch.cat((sw3_CLS_reshaped, fm3_sw3_skipped), dim=1)]
 
-# DLF Module
-import torch
-import torch.nn as nn
-from models.pyramid_features import PyramidFeatures
-from models.multi_scale_block import MultiScaleBlock
-from torch.nn.init import trunc_normal_
-
 class All2Cross(nn.Module):
     def __init__(self, config, img_size=224, in_chans=3, embed_dim=(96, 192, 384), norm_layer=nn.LayerNorm):
         super().__init__()
         self.cross_pos_embed = config.cross_pos_embed
         self.pyramid = PyramidFeatures(config=config, img_size=img_size, in_channels=in_chans)
         
-        # Adjust the number of patches to account for the middle level
-        n_p1 = (config.image_size // config.patch_size) ** 2     # Large level
+        # Adjust num_patches for three levels of features
+        n_p1 = (config.image_size // config.patch_size) ** 2  # Large level
         n_p2 = (config.image_size // (config.patch_size // 2)) ** 2  # Middle level
         n_p3 = (config.image_size // (config.patch_size // 4)) ** 2  # Small level
         num_patches = (n_p1, n_p2, n_p3)
-        self.num_branches = 3  # Increase the number of branches to 3
+        self.num_branches = 3  # Increase to 3 for three levels
         
-        # Create positional embeddings for three branches
         self.pos_embed = nn.ParameterList([
             nn.Parameter(torch.zeros(1, 1 + num_patches[i], embed_dim[i])) for i in range(self.num_branches)
         ])
         
-        # Adjust total_depth calculation for three branches
-        total_depth = sum([sum(x) for x in config.depth])
-        dpr = [x.item() for x in torch.linspace(0, config.drop_path_rate, total_depth)]  # stochastic depth decay rule
+        # Adjust total_depth and dpr for three levels
+        total_depth = sum([sum(x) for x in config.depth])  # Adjusted to include depth for all levels
+        dpr = [x.item() for x in torch.linspace(0, config.drop_path_rate, total_depth)]
         dpr_ptr = 0
+        
         self.blocks = nn.ModuleList()
         for idx, block_config in enumerate(config.depth):
-            curr_depth = sum(block_config)
+            curr_depth = sum(block_config)  # Assuming block_config properly accounts for all levels
             dpr_ = dpr[dpr_ptr:dpr_ptr + curr_depth]
             blk = MultiScaleBlock(embed_dim, num_patches, block_config, num_heads=config.num_heads, mlp_ratio=config.mlp_ratio,
                                   qkv_bias=config.qkv_bias, qk_scale=config.qk_scale, drop=config.drop_rate, 
                                   attn_drop=config.attn_drop_rate, drop_path=dpr_, norm_layer=norm_layer)
             dpr_ptr += curr_depth
             self.blocks.append(blk)
-
-        # Adjust normalization for three branches
+        
         self.norm = nn.ModuleList([norm_layer(embed_dim[i]) for i in range(self.num_branches)])
-
-        # Initialize weights
-        self.apply(self._init_weights)
-    
-    # Weight initialization remains the same as before
-    
-    def forward(self, x):
-        xs = self.pyramid(x)
-
-        # Apply positional embeddings for three branches
-        if self.cross_pos_embed:
-            for i in range(self.num_branches):
-                xs[i] += self.pos_embed[i]
-
-        # Apply MultiScaleBlock and normalization to three branches
-        for blk in self.blocks:
-            xs = blk(xs)
-        xs = [self.norm[i](x) for i, x in enumerate(xs)]
-
-        return xs
-
-import torch
-import torch.nn as nn
-from models.pyramid_features import PyramidFeatures
-from models.multi_scale_block import MultiScaleBlock
-from torch.nn.init import trunc_normal_
-
-class All2Cross(nn.Module):
-    def __init__(self, config, img_size=224, in_chans=3, embed_dim=(96, 192, 384), norm_layer=nn.LayerNorm):
-        super().__init__()
-        self.cross_pos_embed = config.cross_pos_embed
-        self.pyramid = PyramidFeatures(config=config, img_size=img_size, in_channels=in_chans)
-        
-        # Update the number of patches to correspond to the three feature levels
-        n_p1 = (config.image_size // (config.patch_size * 4)) ** 2  # Small level, assuming patch_size * 4
-        n_p2 = (config.image_size // (config.patch_size * 2)) ** 2  # Middle level, assuming patch_size * 2
-        n_p3 = (config.image_size // config.patch_size) ** 2        # Large level
-        num_patches = (n_p1, n_p2, n_p3)
-        self.num_branches = 3  # Now we have three branches
-        
-        # Create positional embeddings for three branches
-        self.pos_embed = nn.ParameterList([
-            nn.Parameter(torch.zeros(1, 1 + num_patches[i], embed_dim[i])) for i in range(self.num_branches)
-        ])
-        
-        # Calculate the total depth for all blocks in the model
-        total_depth = sum([sum(x) for x in config.depth])  # Assuming config.depth is structured appropriately
-        dpr = [x.item() for x in torch.linspace(0, config.drop_path_rate, total_depth)]  # Stochastic depth decay rule
-        dpr_ptr = 0
-        
-        # Construct blocks for three branches
-        self.blocks = nn.ModuleList()
-        for idx, block_config in enumerate(config.depth):
-            curr_depth = sum(block_config)
-            dpr_ = dpr[dpr_ptr:dpr_ptr + curr_depth]
-            blk = MultiScaleBlock(embed_dim, num_patches, block_config, num_heads=config.num_heads, mlp_ratio=config.mlp_ratio,
-                                  qkv_bias=config.qkv_bias, qk_scale=config.qk_scale, drop=config.drop_rate, 
-                                  attn_drop=config.attn_drop_rate, drop_path=dpr_, norm_layer=norm_layer)
-            dpr_ptr += curr_depth
-            self.blocks.append(blk)
-
-        # Normalization layers for each branch
-        self.norm = nn.ModuleList([norm_layer(embed_dim[i]) for i in range(self.num_branches)])
-
-        # Initialize weights
+        for i in range(self.num_branches):
+            if self.pos_embed[i].requires_grad:
+                trunc_normal_(self.pos_embed[i], std=.02)
         self.apply(self._init_weights)
     
     def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
+         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
-            if m.bias is not None:
+            if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
             nn.init.constant_(m.bias, 0)
@@ -310,23 +241,19 @@ class All2Cross(nn.Module):
 
     @torch.jit.ignore
     def no_weight_decay(self):
-        out = {'cls_token'}
+              out = {'cls_token'}
         if self.pos_embed[0].requires_grad:
             out.add('pos_embed')
         return out
-
     def forward(self, x):
         xs = self.pyramid(x)
-
-        # Add positional embeddings for three branches
+        
         if self.cross_pos_embed:
             for i in range(self.num_branches):
                 xs[i] += self.pos_embed[i]
-
-        # Apply MultiScaleBlock and normalization to each set of features
+        
         for blk in self.blocks:
             xs = blk(xs)
         xs = [self.norm[i](x) for i, x in enumerate(xs)]
-
+        
         return xs
-
