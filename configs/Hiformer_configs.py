@@ -13,13 +13,11 @@ def get_hiformer_b_configs():
     cfg.patch_size = 4
     cfg.num_classes = 9
 
-    swin_model_url = "https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth"
-    swin_weights_path = './weights/swin_tiny_patch4_window7_224.pth'
-    
-    if not os.path.isfile(swin_weights_path):
+ if not os.path.isfile('./weights/swin_tiny_patch4_window7_224.pth'):
         print('Downloading Swin-transformer model ...')
-        wget.download(swin_model_url, swin_weights_path)    
-    cfg.swin_pretrained_path = swin_weights_path
+        wget.download("https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_tiny_patch4_window7_224.pth", "./weights/swin_tiny_patch4_window7_224.pth")    
+    cfg.swin_pretrained_path = './weights/swin_tiny_patch4_window7_224.pth'
+
 
     # CNN Configs (assuming resnet50 for illustration)
     cfg.cnn_backbone = "resnet50"
