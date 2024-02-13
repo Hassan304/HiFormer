@@ -239,21 +239,23 @@ class All2Cross(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    @torch.jit.ignore
+   @torch.jit.ignore
     def no_weight_decay(self):
-              out = {'cls_token'}
+        out = {'cls_token'}
         if self.pos_embed[0].requires_grad:
             out.add('pos_embed')
         return out
+
+
     def forward(self, x):
         xs = self.pyramid(x)
-        
+
         if self.cross_pos_embed:
-            for i in range(self.num_branches):
-                xs[i] += self.pos_embed[i]
-        
+          for i in range(self.num_branches):
+            xs[i] += self.pos_embed[i]
+
         for blk in self.blocks:
             xs = blk(xs)
         xs = [self.norm[i](x) for i, x in enumerate(xs)]
-        
+
         return xs
