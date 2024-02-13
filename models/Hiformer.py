@@ -4,7 +4,7 @@ from models.Encoder import All2Cross
 from models.Decoder import ConvUpsample, SegmentationHead
 
 # Assuming All2Cross, ConvUpsample, and SegmentationHead are defined elsewhere
-class Hiformer(nn.Module):
+class HiFormer(nn.Module):
     def __init__(self, config, img_size=224, in_chans=3, n_classes=9):
         super().__init__()
         self.img_size = img_size
