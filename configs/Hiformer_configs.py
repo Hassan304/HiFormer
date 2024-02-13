@@ -4,7 +4,7 @@ import wget
 
 os.makedirs('./weights', exist_ok=True)
 
-def get_hiformer_configs():
+def get_hiformer_b_configs():
     cfg = ml_collections.ConfigDict()
 
     # Swin Transformer Configs
