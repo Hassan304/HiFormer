@@ -239,7 +239,7 @@ class All2Cross(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-   @torch.jit.ignore
+    @torch.jit.ignore
     def no_weight_decay(self):
         out = {'cls_token'}
         if self.pos_embed[0].requires_grad:
