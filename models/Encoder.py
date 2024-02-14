@@ -190,7 +190,6 @@ class PyramidFeatures(nn.Module):
         norm3 = self.norm_3(fm3_sw3_skipped) 
         sw3_CLS = self.avgpool_3(norm3.transpose(1, 2))
         sw3_CLS_reshaped = Rearrange('b c 1 -> b 1 c')(sw3_CLS) 
-        fm3_sw3 = self.p3_pm(fm3_sw3_skipped    )
 
         return [torch.cat((sw1_CLS_reshaped, sw1_skipped), dim=1), torch.cat((sw2_CLS_reshaped, fm2_sw2_skipped), dim=1), torch.cat((sw3_CLS_reshaped, fm3_sw3_skipped), dim=1)]
 
