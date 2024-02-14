@@ -26,7 +26,7 @@ def get_hiformer_b_configs():
     # DLF Configs
     cfg.depth = [[1, 2, 2]]  # Depth for small, middle, large levels (added middle level depth)
     cfg.num_heads = [3, 6, 12]  # Heads for small, middle, large levels (added middle level heads)
-    cfg.mlp_ratio = [4., 4., 4.]  # Ratios for small, middle, large levels (added middle level ratio)
+    cfg.mlp_ratio = [2., 2., 1.]  # Ratios for small, middle, large levels (added middle level ratio)
     cfg.drop_rate = 0.
     cfg.attn_drop_rate = 0.
     cfg.drop_path_rate = 0.
