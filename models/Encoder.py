@@ -206,9 +206,13 @@ class All2Cross(nn.Module):
         num_patches = (n_p1, n_p2, n_p3)
         self.num_branches = 3  # Increase to 3 for three levels
         
+        #self.pos_embed = nn.ParameterList([
+            #nn.Parameter(torch.zeros(1, num_patches[i] + 1, embed_dim[i])) for i, num_patches in enumerate([n_p1, n_p2, n_p3])
+        #])
         self.pos_embed = nn.ParameterList([
-            nn.Parameter(torch.zeros(1, num_patches[i] + 1, embed_dim[i])) for i, num_patches in enumerate([n_p1, n_p2, n_p3])
+           nn.Parameter(torch.zeros(1, 1 + n, embed_dim[i])) for i, n in enumerate([n_p1, n_p2, n_p3])
         ])
+
         
         # Adjust total_depth and dpr for three levels
         total_depth = sum([sum(x) for x in config.depth])  # Adjusted to include depth for all levels
