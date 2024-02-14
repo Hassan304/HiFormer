@@ -138,12 +138,14 @@ class PyramidFeatures(nn.Module):
         self.p2_pm = PatchMerging((config.image_size // config.patch_size // 2, config.image_size // config.patch_size // 2), config.swin_pyramid_fm[1])
         self.p2_pm.state_dict()['reduction.weight'][:]= checkpoint["layers.1.downsample.reduction.weight"]
         self.p2_pm.state_dict()['norm.weight'][:]= checkpoint["layers.1.downsample.norm.weight"]
-        self.p2_pm.state_dict()['norm.bias'][:]= checkpoint["layers.1.downsample.norm.bias"]           
+        self.p2_pm.state_dict()['norm.bias'][:]= checkpoint["layers.1.downsample.norm.bias"]  
+        self.norm_2 = nn.LayerNorm(config.swin_pyramid_fm[1])
+        self.avgpool_2 = nn.AdaptiveAvgPool1d(1) 
         
         self.p3 = self.resnet_layers[6]
         self.p3_ch = nn.Conv2d(config.cnn_pyramid_fm[2] , config.swin_pyramid_fm[2] , kernel_size =  1)  
-        self.norm_2 = nn.LayerNorm(config.swin_pyramid_fm[2])
-        self.avgpool_2 = nn.AdaptiveAvgPool1d(1)    
+        self.norm_3 = nn.LayerNorm(config.swin_pyramid_fm[2])
+        self.avgpool_3 = nn.AdaptiveAvgPool1d(1)    
 
 
         for key in list(checkpoint.keys()):
