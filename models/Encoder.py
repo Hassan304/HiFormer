@@ -207,7 +207,7 @@ class All2Cross(nn.Module):
         self.num_branches = 3  # Increase to 3 for three levels
         
         self.pos_embed = nn.ParameterList([
-            nn.Parameter(torch.zeros(1, 1 + num_patches[i], embed_dim[i])) for i in range(self.num_branches)
+            nn.Parameter(torch.zeros(1, num_patches + 1, embed_dim[i])) for i, num_patches in enumerate([n_p1, n_p2, n_p3])
         ])
         
         # Adjust total_depth and dpr for three levels
@@ -249,12 +249,19 @@ class All2Cross(nn.Module):
 
 
     def forward(self, x):
-        xs = self.pyramid(x)
-
+        xs = self.pyramid(x)  # Output from PyramidFeatures will be a list of feature maps for each level
+        
         if self.cross_pos_embed:
-          for i in range(self.num_branches):
-            xs[i] += self.pos_embed[i]
+            for i in range(self.num_branches):
+                # Dynamically adjust positional embeddings to match the size of xs[i]
+                pos_embed_expanded = self.pos_embed[i].expand(xs[i].size(0), -1, -1)
+                # Assuming xs[i] is of shape [batch, seq_len, embed_dim], and pos_embed[i] is [1, seq_len+1, embed_dim]
+                # Trim or interpolate pos_embed_expanded to match xs[i] in seq_len if necessary
+                seq_len_xs = xs[i].size(1)
+                pos_embed_adjusted = pos_embed_expanded[:, :seq_len_xs, :]  # Adjust seq_len to match xs[i]
+                xs[i] += pos_embed_adjusted
 
+        # Proceed with blocks processing and normalization
         for blk in self.blocks:
             xs = blk(xs)
         xs = [self.norm[i](x) for i, x in enumerate(xs)]
