@@ -34,17 +34,22 @@ class HiFormer(nn.Module):
         xs = self.All2Cross(x)
         embeddings = [x[:, 1:] for x in xs]
         reshaped_embed = []
-        for i, embed in enumerate(embeddings):
-
-            embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
+    for i, embed in enumerate(embeddings):
+        embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
         if i == 0:  # Large-level features
             embed = self.ConvUp_l(embed)
-        elif i == 1:  # Middle-level features, using a new ConvUpsample module for middle-level features
+        elif i == 1 and len(xs) > 1:  # Middle-level features, check existence
             embed = self.ConvUp_m(embed)
-        else:  # Small-level features
+        elif i == 2 and len(xs) > 2:  # Small-level features, check existence
             embed = self.ConvUp_s(embed)
-        
+
         reshaped_embed.append(embed)
+
+    # Ensure there are enough reshaped embeddings before accessing
+    if len(reshaped_embed) < 3:
+        print("Error: Not enough feature levels returned by All2Cross.")
+        return None  # Or handle the error as appropriate
+        
 
         C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]
         C = self.conv_pred(C)
