@@ -19,7 +19,7 @@ class HiFormer(nn.Module):
         
         # The segmentation head might need to be updated to handle the combined output
         self.segmentation_head = SegmentationHead(
-            in_channels=128 * 3,  # Assuming the combined features from all levels have 128*3 channels
+            in_channels=128,  # Assuming the combined features from all levels have 128*3 channels
             out_channels=n_classes,
             kernel_size=3,
         )    
