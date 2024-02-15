@@ -29,24 +29,21 @@ class HiFormer(nn.Module):
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         )
-    
+
     def forward(self, x):
-        # Get features from All2Cross module
         xs = self.All2Cross(x)
+        embeddings = [x[:, 1:] for x in xs]
+        reshaped_embed = []
+        for i, embed in enumerate(embeddings):
+
+            embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
+            embed = self.ConvUp_l(embed) if i == 0 else self.ConvUp_s(embed)
+            
+            reshaped_embed.append(embed)
+
+        C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]
+        C = self.conv_pred(C)
+
+        out = self.segmentation_head(C)
         
-        # Process each set of features with the corresponding ConvUpsample module
-        # Ensure that the output of All2Cross matches these expectations
-        large_features = self.ConvUp_l(xs[0])  # Adjust indexing based on your All2Cross output
-        middle_features = self.ConvUp_m(xs[1])
-        small_features = self.ConvUp_s(xs[2])
-        
-        # Combine the features from all levels
-        combined_features = torch.cat([large_features, middle_features, small_features], dim=1)
-        
-        # Reduce channels and upsample
-        combined_features = self.conv_pred(combined_features)
-        
-        # Get the segmentation output
-        out = self.segmentation_head(combined_features)
-        
-        return out
+        return out  
