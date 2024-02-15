@@ -44,13 +44,7 @@ class HiFormer(nn.Module):
             embed = self.ConvUp_s(embed)
 
         reshaped_embed.append(embed)
-
-    # Ensure there are enough reshaped embeddings before accessing
-    if len(reshaped_embed) < 3:
-        print("Error: Not enough feature levels returned by All2Cross.")
-        return None  # Or handle the error as appropriate
         
-
         C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]
         C = self.conv_pred(C)
         out = self.segmentation_head(C)
