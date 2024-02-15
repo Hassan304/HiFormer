@@ -252,20 +252,13 @@ class All2Cross(nn.Module):
         return out
 
 
-    def forward(self, x):
-        xs = self.pyramid(x)  # Output from PyramidFeatures will be a list of feature maps for each level
-        
-        if self.cross_pos_embed:
-            for i in range(self.num_branches):
-                # Dynamically adjust positional embeddings to match the size of xs[i]
-                pos_embed_expanded = self.pos_embed[i].expand(xs[i].size(0), -1, -1)
-                # Assuming xs[i] is of shape [batch, seq_len, embed_dim], and pos_embed[i] is [1, seq_len+1, embed_dim]
-                # Trim or interpolate pos_embed_expanded to match xs[i] in seq_len if necessary
-                seq_len_xs = xs[i].size(1)
-                pos_embed_adjusted = pos_embed_expanded[:, :seq_len_xs, :]  # Adjust seq_len to match xs[i]
-                xs[i] += pos_embed_adjusted
+     def forward(self, x):
+        xs = self.pyramid(x)
 
-        # Proceed with blocks processing and normalization
+        if self.cross_pos_embed:
+          for i in range(self.num_branches):
+            xs[i] += self.pos_embed[i]
+
         for blk in self.blocks:
             xs = blk(xs)
         xs = [self.norm[i](x) for i, x in enumerate(xs)]
