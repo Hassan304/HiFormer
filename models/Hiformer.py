@@ -37,9 +37,14 @@ class HiFormer(nn.Module):
         for i, embed in enumerate(embeddings):
 
             embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
-            embed = self.ConvUp_l(embed) if i == 0 else self.ConvUp_s(embed)
-            
-            reshaped_embed.append(embed)
+        if i == 0:  # Large-level features
+            embed = self.ConvUp_l(embed)
+        elif i == 1:  # Middle-level features, using a new ConvUpsample module for middle-level features
+            embed = self.ConvUp_m(embed)
+        else:  # Small-level features
+            embed = self.ConvUp_s(embed)
+        
+        reshaped_embed.append(embed)
 
         C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]
         C = self.conv_pred(C)
