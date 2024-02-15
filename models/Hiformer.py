@@ -53,7 +53,6 @@ class HiFormer(nn.Module):
 
         C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]
         C = self.conv_pred(C)
-
         out = self.segmentation_head(C)
         
         return out  
