@@ -13,19 +13,19 @@ class HiFormer(nn.Module):
         self.All2Cross = All2Cross(config=config, img_size=img_size, in_chans=in_chans)
         
         # Update the channel sizes based on your All2Cross module output
-        self.ConvUp_s = ConvUpsample(in_chans=config.swin_pyramid_fm[2], out_chans=[128, 128], upsample=True)
-        self.ConvUp_m = ConvUpsample(in_chans=config.swin_pyramid_fm[1], out_chans=[128, 128], upsample=True)
-        self.ConvUp_l = ConvUpsample(in_chans=config.swin_pyramid_fm[0], out_chans=[128, 128], upsample=True)  # Assuming you want to upsample large features
+        self.ConvUp_s = ConvUpsample(in_chans= 384, out_chans=[128, 128], upsample=True)
+        self.ConvUp_m = ConvUpsample(in_chans= 192, out_chans=[128, 128], upsample=True)
+        self.ConvUp_l = ConvUpsample(in_chans= 96, upsample=False)  # Assuming you want to upsample large features
         
         # The segmentation head might need to be updated to handle the combined output
         self.segmentation_head = SegmentationHead(
-            in_channels=128,  # Assuming the combined features from all levels have 128*3 channels
+            in_channels=16,  # Assuming the combined features from all levels have 128*3 channels
             out_channels=n_classes,
             kernel_size=3,
         )    
 
         self.conv_pred = nn.Sequential(
-            nn.Conv2d(128 * 3, 128, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(128 * 2, 16, kernel_size=1, stride=1, padding=0, bias=True),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         )
