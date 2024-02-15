@@ -252,7 +252,7 @@ class All2Cross(nn.Module):
         return out
 
 
-     def forward(self, x):
+    def forward(self, x):
         xs = self.pyramid(x)
 
         if self.cross_pos_embed:
