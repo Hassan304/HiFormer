@@ -36,17 +36,15 @@ class HiFormer(nn.Module):
         reshaped_embed = []
     for i, embed in enumerate(embeddings):
         embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
-        if i == 0:  # Large-level features
+        if i == 0:
             embed = self.ConvUp_l(embed)
-        elif i == 1 and len(xs) > 1:  # Middle-level features, check existence
-            embed = self.ConvUp_m(embed)
-        elif i == 2 and len(xs) > 2:  # Small-level features, check existence
+        elif i == 1:
+            embed = self.ConvUp_m(embed)  # Middle-level features processing
+        else:
             embed = self.ConvUp_s(embed)
-
         reshaped_embed.append(embed)
         
-        C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]
-        C = self.conv_pred(C)
-        out = self.segmentation_head(C)
-        
-        return out  
+    combined_features = torch.cat(reshaped_embed, dim=1)
+    C = self.conv_pred(combined_features)
+    out = self.segmentation_head(C)
+    return out
