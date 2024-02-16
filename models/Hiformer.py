@@ -36,12 +36,12 @@ class HiFormer(nn.Module):
         reshaped_embed = []
         for i, embed in enumerate(embeddings):
             embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
-        if i == 0:
-            embed = self.ConvUp_l(embed)
-        elif i == 1:
-            embed = self.ConvUp_m(embed)  # Middle-level features processing
-        else:
-            embed = self.ConvUp_s(embed)
+            if i == 0:
+                embed = self.ConvUp_l(embed)
+            elif i == 1:
+                embed = self.ConvUp_m(embed)  # Middle-level features processing
+            else:
+                embed = self.ConvUp_s(embed)
             reshaped_embed.append(embed)
         
         combined_features = torch.cat(reshaped_embed, dim=1)
