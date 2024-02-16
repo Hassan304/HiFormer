@@ -47,4 +47,4 @@ class HiFormer(nn.Module):
     combined_features = torch.cat(reshaped_embed, dim=1)
     C = self.conv_pred(combined_features)
     out = self.segmentation_head(C)
-    return out
+        return out
