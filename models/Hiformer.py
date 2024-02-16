@@ -34,7 +34,7 @@ class HiFormer(nn.Module):
         xs = self.All2Cross(x)
         embeddings = [x[:, 1:] for x in xs]
         reshaped_embed = []
-    for i, embed in enumerate(embeddings):
+        for i, embed in enumerate(embeddings):
         embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
         if i == 0:
             embed = self.ConvUp_l(embed)
@@ -44,7 +44,7 @@ class HiFormer(nn.Module):
             embed = self.ConvUp_s(embed)
         reshaped_embed.append(embed)
         
-    combined_features = torch.cat(reshaped_embed, dim=1)
-    C = self.conv_pred(combined_features)
-    out = self.segmentation_head(C)
+        combined_features = torch.cat(reshaped_embed, dim=1)
+        C = self.conv_pred(combined_features)
+        out = self.segmentation_head(C)
         return out
