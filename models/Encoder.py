@@ -256,8 +256,24 @@ class All2Cross(nn.Module):
         xs = self.pyramid(x)
 
         if self.cross_pos_embed:
-          for i in range(self.num_branches):
-            xs[i] += self.pos_embed[i]
+            for i in range(self.num_branches):
+                # Get the sequence length of the feature tensor
+                seq_len_xs = xs[i].shape[1]
+
+                # Get the sequence length of the positional embeddings
+                seq_len_pe = self.pos_embed[i].shape[2] - 1  # Minus 1 because pos_embed may include an extra token
+
+                if seq_len_xs != seq_len_pe:
+                    # If sequence lengths do not match, adjust the positional embeddings
+                    # This assumes that the positional embeddings have a larger sequence length
+                    pos_embed_adjusted = self.pos_embed[i][:, :seq_len_xs+1, :]
+                else:
+                    # If sequence lengths match, use the positional embeddings as is
+                    pos_embed_adjusted = self.pos_embed[i]
+
+                # Add the positional embeddings to the feature tensor
+                xs[i] = xs[i] + pos_embed_adjusted[:, 1:, :]  # Skip the first token if it's a class token
+
 
         for blk in self.blocks:
             xs = blk(xs)
