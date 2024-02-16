@@ -35,6 +35,7 @@ class HiFormer(nn.Module):
         embeddings = [x[:, 1:] for x in xs]
         reshaped_embed = []
         for i, embed in enumerate(embeddings):
+            # This line and the lines below it need to be indented
             embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
             if i == 0:
                 embed = self.ConvUp_l(embed)
