@@ -2,7 +2,7 @@ import torch.nn as nn
 from einops.layers.torch import Rearrange
 from models.Encoder import All2Cross
 from models.Decoder import ConvUpsample, SegmentationHead
-
+import torch
 # Assuming All2Cross, ConvUpsample, and SegmentationHead are defined elsewhere
 class HiFormer(nn.Module):
     def __init__(self, config, img_size=224, in_chans=3, n_classes=9):
