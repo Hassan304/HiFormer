@@ -52,8 +52,7 @@ class SwinTransformer(nn.Module):
         super().__init__()
         
         patches_resolution = [img_size // patch_size, img_size // patch_size]
-        #num_patches = patches_resolution[0] * patches_resolution[1]
-        num_patches = patches_resolution[0] * patches_resolution[1] * patches_resolution[2]
+        num_patches = patches_resolution[0] * patches_resolution[1]
         self.num_layers = len(depths)
         self.embed_dim = embed_dim
         self.ape = ape
@@ -76,8 +75,7 @@ class SwinTransformer(nn.Module):
         for i_layer in range(self.num_layers):
             layer = BasicLayer(dim=int(embed_dim * 2 ** i_layer),
                                input_resolution=(patches_resolution[0] // (2 ** i_layer),
-                                                 patches_resolution[1] // (2 ** i_layer),
-                                                 patches_resolution[2] // (2 ** i_layer)),
+                                                 patches_resolution[1] // (2 ** i_layer)),
                                depth=depths[i_layer],
                                num_heads=num_heads[i_layer],
                                window_size=window_size,
