@@ -255,18 +255,19 @@ class All2Cross(nn.Module):
     def forward(self, x):
         xs = self.pyramid(x)
         for i in range(self.num_branches):
-            seq_len_xs = xs[i].shape[1]  # Length of the feature tensor sequence
-            seq_len_pe = self.pos_embed[i].shape[1] - 1  # Length of the positional embeddings sequence, -1 if including a class token
-            
-            # Adjusting the positional embeddings if their sequence length doesn't match the feature tensor's sequence length
-            if seq_len_xs != seq_len_pe:
-                # Here we adjust pos_embed to match the sequence length of xs[i]
-                pos_embed_adjusted = self.pos_embed[i][:, :(seq_len_xs + 1), :]
+            feature_seq_len = xs[i].shape[1]  # Sequence length of the feature tensor
+            pos_embed_seq_len = self.pos_embed[i].shape[1]  # Sequence length of the positional embeddings
+
+            # Adjust positional embeddings if necessary
+            if feature_seq_len + 1 == pos_embed_seq_len:
+                # Assuming the positional embeddings include a class token at the beginning
+                pos_embed_adjusted = self.pos_embed[i][:, 1:, :]  # Skipping the class token
             else:
+                # Directly use positional embeddings without adjustment
                 pos_embed_adjusted = self.pos_embed[i]
-            
-            # Adding the adjusted positional embeddings to the feature tensor
-            xs[i] = xs[i] + pos_embed_adjusted[:, 1:, :]  # Adjusting to skip the class token if present
+
+            # Adding adjusted positional embeddings to the feature tensor
+            xs[i] += pos_embed_adjusted[:, :feature_seq_len, :]
 
         #if self.cross_pos_embed:
             #for i in range(self.num_branches):
