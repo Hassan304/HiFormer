@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.functional as F
 from einops.layers.torch import Rearrange
 from models.Encoder import All2Cross
 from models.Decoder import ConvUpsample, SegmentationHead
@@ -6,7 +7,8 @@ import torch
 # Assuming All2Cross, ConvUpsample, and SegmentationHead are defined elsewhere
 class HiFormer(nn.Module):
     def __init__(self, config, img_size=224, in_chans=3, n_classes=9):
-        super().__init__()
+        #super().__init__()
+        super(HiFormer, self).__init__()
         self.img_size = img_size
         self.patch_size = [4, 8, 16]  # Adding patch size for middle level
         self.n_classes = n_classes
@@ -19,7 +21,7 @@ class HiFormer(nn.Module):
         
         # The segmentation head might need to be updated to handle the combined output
         self.segmentation_head = SegmentationHead(
-            in_channels=128*2,  # Assuming the combined features from all levels have 128*3 channels
+            in_channels=16,  # Assuming the combined features from all levels have 128*3 channels
             out_channels=n_classes,
             kernel_size=3,
         )    
@@ -30,6 +32,12 @@ class HiFormer(nn.Module):
             nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         )
 
+    def calculate_target_hw(self, reshaped_embed):
+        # Assuming reshaped_embed is a list of tensors with shape [batch_size, channels, height, width]
+        target_h = min([embed.shape[2] for embed in reshaped_embed])
+        target_w = min([embed.shape[3] for embed in reshaped_embed])
+        return target_h, target_w
+        
     def forward(self, x):
         xs = self.All2Cross(x)
         embeddings = [x[:, 1:] for x in xs]
