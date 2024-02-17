@@ -272,7 +272,7 @@ class All2Cross(nn.Module):
                     pos_embed_adjusted = self.pos_embed[i]
 
                 # Add the positional embeddings to the feature tensor
-                xs[i] = xs[i] + pos_embed_adjusted[:, 1:, :]  # Skip the first token if it's a class token
+                xs[i] = xs[i] + pos_embed_adjusted[:, :-1, :]  # Skip the first token if it's a class token
 
 
         for blk in self.blocks:
