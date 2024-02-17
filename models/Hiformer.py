@@ -33,9 +33,13 @@ class HiFormer(nn.Module):
         )
 
     def calculate_target_hw(self, reshaped_embed):
+        
         # Assuming reshaped_embed is a list of tensors with shape [batch_size, channels, height, width]
-        target_h = min([embed.shape[2] for embed in reshaped_embed])
-        target_w = min([embed.shape[3] for embed in reshaped_embed])
+        valid_embeds = [embed for embed in reshaped_embed if len(embed.shape) == 4]
+        if not valid_embeds:
+            raise ValueError("No valid embeddings found with the expected number of dimensions (4).")
+        target_h = min([embed.shape[2] for embed in valid_embeds])
+        target_w = min([embed.shape[3] for embed in valid_embeds])
         return target_h, target_w
         
     def forward(self, x):
