@@ -27,7 +27,7 @@ class HiFormer(nn.Module):
         )    
 
         self.conv_pred = nn.Sequential(
-            nn.Conv2d(128 * 2, 16, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(128, 16, kernel_size=1, stride=1, padding=0, bias=True),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         )
@@ -35,9 +35,9 @@ class HiFormer(nn.Module):
     def calculate_target_hw(self, reshaped_embed):
         
         # Assuming reshaped_embed is a list of tensors with shape [batch_size, channels, height, width]
-        valid_embeds = [embed for embed in reshaped_embed if len(embed.shape) == 4]
+        valid_embeds = [embed for embed in reshaped_embed if len(embed.shape) == 2]
         if not valid_embeds:
-            raise ValueError("No valid embeddings found with the expected number of dimensions (4).")
+            raise ValueError("No valid embeddings found with the expected number of dimensions (2).")
         target_h = min([embed.shape[2] for embed in valid_embeds])
         target_w = min([embed.shape[3] for embed in valid_embeds])
         return target_h, target_w
