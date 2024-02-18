@@ -31,36 +31,54 @@ class HiFormer(nn.Module):
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         )
-
-    def calculate_target_hw(self, reshaped_embed):
-        
-        # Assuming reshaped_embed is a list of tensors with shape [batch_size, channels, height, width]
-        valid_embeds = [embed for embed in reshaped_embed if len(embed.shape) == 2]
-        if not valid_embeds:
-            raise ValueError("No valid embeddings found with the expected number of dimensions (2).")
-        target_h = min([embed.shape[2] for embed in valid_embeds])
-        target_w = min([embed.shape[3] for embed in valid_embeds])
-        return target_h, target_w
-        
     def forward(self, x):
         xs = self.All2Cross(x)
         embeddings = [x[:, 1:] for x in xs]
         reshaped_embed = []
-        target_h, target_w = self.calculate_target_hw(xs)  # Define this method based on your model's specifics
-
         for i, embed in enumerate(embeddings):
+
             embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
-            if i == 0:
-                embed = self.ConvUp_l(embed)
-            elif i == 1:
-                embed = self.ConvUp_m(embed)  # Middle-level features processing
-            else:
-                embed = self.ConvUp_s(embed)
-            # Resize to target height and width
-            embed = F.interpolate(embed, size=(target_h, target_w), mode='bilinear', align_corners=False)
+            embed = self.ConvUp_l(embed) if i == 0 else self.ConvUp_s(embed)
+            
             reshaped_embed.append(embed)
-    
-        combined_features = torch.cat(reshaped_embed, dim=1)
-        C = self.conv_pred(combined_features)
+
+        C = reshaped_embed[0] + reshaped_embed[1]
+        C = self.conv_pred(C)
+
         out = self.segmentation_head(C)
-        return out
+        
+        return out  
+
+    #def calculate_target_hw(self, reshaped_embed):
+        
+        # Assuming reshaped_embed is a list of tensors with shape [batch_size, channels, height, width]
+        #valid_embeds = [embed for embed in reshaped_embed if len(embed.shape) == 2]
+        #if not valid_embeds:
+          #  raise ValueError("No valid embeddings found with the expected number of dimensions (2).")
+        #target_h = min([embed.shape[2] for embed in valid_embeds])
+        #target_w = min([embed.shape[3] for embed in valid_embeds])
+        #return target_h, target_w
+        
+    #def forward(self, x):
+     #   xs = self.All2Cross(x)
+       # embeddings = [x[:, 1:] for x in xs]
+       # reshaped_embed = []
+       # target_h, target_w = self.calculate_target_hw(xs)  # Define this method based on your model's specifics
+
+       # for i, embed in enumerate(embeddings):
+          #  embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
+           # if i == 0:
+             #   embed = self.ConvUp_l(embed)
+           # elif i == 1:
+              #  embed = self.ConvUp_m(embed)  # Middle-level features processing
+           # else:
+               # embed = self.ConvUp_s(embed)
+            # Resize to target height and width
+            #embed = F.interpolate(embed, size=(target_h, target_w), mode='bilinear', align_corners=False)
+           # reshaped_embed.append(embed)
+    
+        #combined_features = torch.cat(reshaped_embed, dim=1)
+       # C = self.conv_pred(combined_features)
+        #out = self.segmentation_head(C)
+        #return out
+
