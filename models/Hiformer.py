@@ -57,7 +57,7 @@ class HiFormer(nn.Module):
         target_size = (max_h, max_w)
         # Resize all embeddings to have the same spatial dimensions
         #resized_embeds = [F.interpolate(embed, size=(max_h, max_w), mode='bilinear', align_corners=False) for embed in reshaped_embed]
-        resizeed_embeds = [F.interpolate(e, size=target_size, mode='bilinear', align_corners=False) for e in reshaped_embed]
+        resized_embeds = [F.interpolate(e, size=target_size, mode='bilinear', align_corners=False) for e in reshaped_embed]
         # Now you can combine the resized embeddings directly
         combined_features = torch.cat(resized_embeds, dim=1)  # Concatenate along the channel dimension
 
