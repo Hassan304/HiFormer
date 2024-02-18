@@ -50,15 +50,30 @@ class HiFormer(nn.Module):
                 embed = self.ConvUp_s(embed)
         
             reshaped_embed.append(embed)
+            
+        # Find the maximum height and width to resize all feature maps to match this size
+        max_h = max(embed.shape[2] for embed in reshaped_embed)
+        max_w = max(embed.shape[3] for embed in reshaped_embed)
+
+        # Resize all embeddings to have the same spatial dimensions
+        resized_embeds = [F.interpolate(embed, size=(max_h, max_w), mode='bilinear', align_corners=False) for embed in reshaped_embed]
+
+        # Now you can combine the resized embeddings directly
+        combined_features = torch.cat(resized_embeds, dim=1)  # Concatenate along the channel dimension
+
+        # Proceed with convolution and segmentation head
+        C = self.conv_pred(combined_features)
+        out = self.segmentation_head(C)
+        return out
 
         # Combine processed embeddings
         # Ensure all embeddings have compatible dimensions before combining
         # This snippet assumes you're simply adding the embeddings. Consider resizing or interpolation if dimensions differ.
-        C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]  # Adjust as needed based on actual processing logic
-        C = self.conv_pred(C)
+        #C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]  # Adjust as needed based on actual processing logic
+        #C = self.conv_pred(C)
 
-        out = self.segmentation_head(C)
-        return out
+        #out = self.segmentation_head(C)
+        #return out
 
     #def calculate_target_hw(self, reshaped_embed):
         
