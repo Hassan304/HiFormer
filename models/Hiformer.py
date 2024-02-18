@@ -27,7 +27,7 @@ class HiFormer(nn.Module):
         )                
 
         self.conv_pred = nn.Sequential(
-            nn.Conv2d(128*2, 16, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(128*3, 16, kernel_size=1, stride=1, padding=0, bias=True),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         )
