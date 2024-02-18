@@ -24,10 +24,10 @@ class HiFormer(nn.Module):
             in_channels=16,  # Assuming the combined features from all levels have 128*3 channels
             out_channels=n_classes,
             kernel_size=3,
-        )    
+        )                
 
         self.conv_pred = nn.Sequential(
-            nn.Conv2d(128, 16, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.Conv2d(128*2, 16, kernel_size=1, stride=1, padding=0, bias=True),
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         )
