@@ -31,23 +31,34 @@ class HiFormer(nn.Module):
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=4, mode='bilinear', align_corners=False)
         )
-    def forward(self, x):
-        xs = self.All2Cross(x)
-        embeddings = [x[:, 1:] for x in xs]
-        reshaped_embed = []
-        for i, embed in enumerate(embeddings):
 
-            embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size//self.patch_size[i]), w=(self.img_size//self.patch_size[i]))(embed)
-            embed = self.ConvUp_l(embed) if i == 0 else self.ConvUp_s(embed)
-            
+    def forward(self, x):
+        xs = self.All2Cross(x)  # Get embeddings from All2Cross
+        embeddings = [x[:, 1:] for x in xs]  # Remove class token if present
+        reshaped_embed = []
+
+        for i, embed in enumerate(embeddings):
+            # Reshape embeddings to feature map format
+            embed = Rearrange('b (h w) d -> b d h w', h=(self.img_size // self.patch_size[i]), w=(self.img_size // self.patch_size[i]))(embed)
+
+            # Apply correct ConvUpsample layer based on embedding level
+            if i == 0:  # Large-level features
+                embed = self.ConvUp_l(embed)
+            elif i == 1:  # Middle-level features
+                embed = self.ConvUp_m(embed)
+            else:  # Small-level features
+                embed = self.ConvUp_s(embed)
+        
             reshaped_embed.append(embed)
 
-        C = reshaped_embed[0] + reshaped_embed[1]
+        # Combine processed embeddings
+        # Ensure all embeddings have compatible dimensions before combining
+        # This snippet assumes you're simply adding the embeddings. Consider resizing or interpolation if dimensions differ.
+        C = reshaped_embed[0] + reshaped_embed[1] + reshaped_embed[2]  # Adjust as needed based on actual processing logic
         C = self.conv_pred(C)
 
         out = self.segmentation_head(C)
-        
-        return out  
+        return out
 
     #def calculate_target_hw(self, reshaped_embed):
         
